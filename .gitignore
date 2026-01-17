@@ -1,0 +1,32 @@
+# Binarios
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+*.coverprofile
+
+# Dependencias
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Workspace temporal
+workspace/.tmp/
+workspace/branches/
+
+# Logs
+*.log
+
+# Artefactos de ejecución
+artifacts/

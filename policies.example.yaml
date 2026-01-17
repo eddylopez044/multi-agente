@@ -1,0 +1,89 @@
+# Ejemplo de configuración de políticas para el sistema multi-agente
+
+policies:
+  - id: coder-policy
+    name: "Coder Agent Policy"
+    description: "Restringe el agente Coder a directorios específicos"
+    type: constraint
+    enabled: true
+    metadata:
+      agent_id: coder
+      allowed_paths:
+        - "src/**"
+        - "cmd/**"
+        - "internal/**"
+        - "pkg/**"
+      forbidden_paths:
+        - "**/*_test.go"
+        - "vendor/**"
+        - "migrations/**"
+      required_tests: true
+      max_file_size_kb: 1000
+
+  - id: tester-policy
+    name: "Tester Agent Policy"
+    description: "Tester solo puede modificar archivos de test"
+    type: constraint
+    enabled: true
+    metadata:
+      agent_id: tester
+      allowed_paths:
+        - "**/*_test.go"
+      forbidden_paths:
+        - "**/*.go"  # No puede modificar código de producción
+      allowed_tools:
+        - "go"
+        - "go test"
+        - "go test -cover"
+
+  - id: auditor-policy
+    name: "Auditor Agent Policy"
+    description: "Auditor solo lee, no modifica código"
+    type: constraint
+    enabled: true
+    metadata:
+      agent_id: auditor
+      allowed_paths: []  # Solo lectura
+      allowed_tools:
+        - "go vet"
+        - "golangci-lint"
+        - "gitleaks"
+        - "nancy"
+
+gates:
+  - id: fmt-lint
+    name: "Format and Lint"
+    description: "El código debe pasar fmt y lint"
+    required: true
+    
+  - id: tests-pass
+    name: "Tests Must Pass"
+    description: "Todos los tests deben pasar"
+    required: true
+    
+  - id: coverage
+    name: "Minimum Coverage"
+    description: "Cobertura mínima del 70%"
+    required: true
+    threshold: 70.0
+    
+  - id: secrets
+    name: "No Secrets"
+    description: "No deben exponerse secretos"
+    required: true
+    
+  - id: dependencies
+    name: "Dependency Security"
+    description: "No CVEs críticos en dependencias"
+    required: true
+    
+  - id: risk-review
+    name: "Risk Review"
+    description: "Cambios de alto riesgo requieren revisión"
+    required: false  # Solo warning
+
+constraints:
+  max_retries: 3
+  max_execution_time_seconds: 300
+  max_file_changes: 50
+  required_approvals_for_high_risk: 1
