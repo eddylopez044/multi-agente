@@ -14,22 +14,22 @@ import (
 
 // Orchestrator coordina todos los agentes y gestiona el flujo de trabajo
 type Orchestrator struct {
-	workspace  workspace.Manager
-	policy     policies.Engine
-	taskQueue  chan *types.Task
-	taskState  map[string]*types.Task
-	results    map[string]*types.TaskResult
-	memory     []types.Decision
-	mu         sync.RWMutex
-	agents     map[string]agents.Agent
-	ctx        context.Context
-	cancel     context.CancelFunc
+	workspace *workspace.Manager
+	policy    *policies.Engine
+	taskQueue chan *types.Task
+	taskState map[string]*types.Task
+	results   map[string]*types.TaskResult
+	memory    []types.Decision
+	mu        sync.RWMutex
+	agents    map[string]agents.Agent
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 // New crea un nuevo Orchestrator
-func New(ws workspace.Manager, policyEngine policies.Engine) *Orchestrator {
+func New(ws *workspace.Manager, policyEngine *policies.Engine) *Orchestrator {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	o := &Orchestrator{
 		workspace: ws,
 		policy:    policyEngine,
@@ -41,10 +41,10 @@ func New(ws workspace.Manager, policyEngine policies.Engine) *Orchestrator {
 		ctx:       ctx,
 		cancel:    cancel,
 	}
-	
+
 	// Registrar agentes
 	o.registerAgents()
-	
+
 	return o
 }
 
@@ -74,12 +74,12 @@ func (o *Orchestrator) Stop() {
 func (o *Orchestrator) SubmitTask(task *types.Task) error {
 	task.CreatedAt = time.Now()
 	task.State = types.StatePending
-	
+
 	o.mu.Lock()
 	task.ID = fmt.Sprintf("task-%d", len(o.taskState)+1)
 	o.taskState[task.ID] = task
 	o.mu.Unlock()
-	
+
 	select {
 	case o.taskQueue <- task:
 		return nil
@@ -105,12 +105,12 @@ func (o *Orchestrator) processQueue() {
 // executeTask ejecuta una tarea usando el agente apropiado
 func (o *Orchestrator) executeTask(task *types.Task) {
 	startTime := time.Now()
-	
+
 	// Actualizar estado
 	o.updateTaskState(task.ID, types.StateRunning, nil)
 	now := time.Now()
 	task.StartedAt = &now
-	
+
 	// Verificar políticas antes de ejecutar
 	if !o.policy.AllowTask(task) {
 		result := &types.TaskResult{
@@ -123,7 +123,7 @@ func (o *Orchestrator) executeTask(task *types.Task) {
 		o.recordResult(result)
 		return
 	}
-	
+
 	// Seleccionar agente
 	agent := o.selectAgent(task.Type)
 	if agent == nil {
@@ -137,25 +137,25 @@ func (o *Orchestrator) executeTask(task *types.Task) {
 		o.recordResult(result)
 		return
 	}
-	
+
 	// Ejecutar agente
 	result := agent.Execute(o.ctx, task)
 	result.Duration = time.Since(startTime)
-	
+
 	// Validar resultado contra políticas (gates)
 	if result.Success && !o.policy.ValidateResult(result) {
 		result.Success = false
 		result.State = types.StateFailed
 		result.Error = "result failed policy validation"
 	}
-	
+
 	// Registrar decisión
 	if len(result.Decisions) > 0 {
 		o.mu.Lock()
 		o.memory = append(o.memory, result.Decisions...)
 		o.mu.Unlock()
 	}
-	
+
 	// Si falla y hay retries, reintentar
 	if !result.Success && task.RetryCount < task.MaxRetries {
 		task.RetryCount++
@@ -164,13 +164,13 @@ func (o *Orchestrator) executeTask(task *types.Task) {
 		go o.executeTask(task)
 		return
 	}
-	
+
 	// Actualizar estado final
 	now = time.Now()
 	task.CompletedAt = &now
 	o.updateTaskState(task.ID, result.State, task.CompletedAt)
 	o.recordResult(result)
-	
+
 	// Si hay subtareas, ejecutarlas
 	if nextTasks := o.getNextTasks(task, result); len(nextTasks) > 0 {
 		for _, nextTask := range nextTasks {
@@ -202,14 +202,14 @@ func (o *Orchestrator) selectAgent(taskType types.TaskType) agents.Agent {
 // getNextTasks determina las siguientes tareas basadas en el resultado
 func (o *Orchestrator) getNextTasks(task *types.Task, result *types.TaskResult) []*types.Task {
 	nextTasks := make([]*types.Task, 0)
-	
+
 	switch task.Type {
 	case types.TaskPlan:
 		// Después de planificar, ejecutar las subtareas
 		if subtasks, ok := result.Outputs["subtasks"].([]*types.Task); ok {
 			return subtasks
 		}
-		
+
 	case types.TaskCode:
 		// Después de codificar, ejecutar tests
 		if result.Success {
@@ -220,7 +220,7 @@ func (o *Orchestrator) getNextTasks(task *types.Task, result *types.TaskResult) 
 				ParentID:  task.ID,
 			})
 		}
-		
+
 	case types.TaskTest:
 		// Después de testear, decidir: repair, audit o continuar
 		if !result.Success {
@@ -240,7 +240,7 @@ func (o *Orchestrator) getNextTasks(task *types.Task, result *types.TaskResult) 
 				ParentID:  task.ID,
 			})
 		}
-		
+
 	case types.TaskRepair:
 		// Después de reparar, volver a testear
 		if result.Success {
@@ -251,7 +251,7 @@ func (o *Orchestrator) getNextTasks(task *types.Task, result *types.TaskResult) 
 				ParentID:  task.ID,
 			})
 		}
-		
+
 	case types.TaskAudit:
 		// Después de auditar, decidir: repair o optimize
 		if auditFailures, ok := result.Outputs["critical_findings"].([]types.AuditFinding); ok && len(auditFailures) > 0 {
@@ -271,7 +271,7 @@ func (o *Orchestrator) getNextTasks(task *types.Task, result *types.TaskResult) 
 				ParentID:  task.ID,
 			})
 		}
-		
+
 	case types.TaskOptimize:
 		// Después de optimizar, verificar que los tests aún pasan
 		if result.Success {
@@ -283,7 +283,7 @@ func (o *Orchestrator) getNextTasks(task *types.Task, result *types.TaskResult) 
 			})
 		}
 	}
-	
+
 	return nextTasks
 }
 
@@ -291,7 +291,7 @@ func (o *Orchestrator) getNextTasks(task *types.Task, result *types.TaskResult) 
 func (o *Orchestrator) updateTaskState(taskID string, state types.TaskState, completedAt *time.Time) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	
+
 	if task, exists := o.taskState[taskID]; exists {
 		task.State = state
 		if completedAt != nil {
@@ -311,7 +311,7 @@ func (o *Orchestrator) recordResult(result *types.TaskResult) {
 func (o *Orchestrator) GetTaskState(taskID string) (*types.Task, *types.TaskResult) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
-	
+
 	task := o.taskState[taskID]
 	result := o.results[taskID]
 	return task, result

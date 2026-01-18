@@ -2,7 +2,6 @@ package agents
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -17,15 +16,15 @@ type Optimizer struct {
 }
 
 // NewOptimizer crea un nuevo agente optimizador
-func NewOptimizer(ws workspace.Manager, policy policies.Engine) *Optimizer {
+func NewOptimizer(ws *workspace.Manager, policy *policies.Engine) *Optimizer {
 	contract := types.AgentContract{
-		ID:           "optimizer",
-		Name:         "Optimizer",
-		AllowedPaths: []string{"src/**", "cmd/**", "internal/**", "pkg/**"},
-		AllowedTools: []string{"go", "go test", "go tool pprof"},
+		ID:            "optimizer",
+		Name:          "Optimizer",
+		AllowedPaths:  []string{"src/**", "cmd/**", "internal/**", "pkg/**"},
+		AllowedTools:  []string{"go", "go test", "go tool pprof"},
 		RequiredTests: true,
 	}
-	
+
 	return &Optimizer{
 		BaseAgent: NewBaseAgent(ws, policy, contract),
 	}
@@ -40,13 +39,13 @@ func (o *Optimizer) Execute(ctx context.Context, task *types.Task) *types.TaskRe
 		Timestamp:  time.Now(),
 		Confidence: 0.7,
 	}
-	
+
 	// Ejecutar benchmark si está disponible
 	benchmarkResult := o.runBenchmarks()
-	
+
 	// Identificar optimizaciones potenciales
 	optimizations := o.identifyOptimizations(task.Objective)
-	
+
 	// Aplicar optimizaciones (solo si son seguras)
 	appliedOpts := make([]string, 0)
 	for _, opt := range optimizations {
@@ -56,26 +55,26 @@ func (o *Optimizer) Execute(ctx context.Context, task *types.Task) *types.TaskRe
 			}
 		}
 	}
-	
+
 	// Validar que los tests aún pasan después de optimizar
 	testOutput, _ := o.workspace.RunCommand("go", "test", "./...")
 	testsStillPass := !strings.Contains(testOutput, "FAIL")
-	
+
 	// Comparar benchmark antes/después
 	benchmarkAfter := o.runBenchmarks()
 	improvement := o.compareBenchmarks(benchmarkResult, benchmarkAfter)
-	
+
 	outputs := map[string]interface{}{
-		"optimizations":     appliedOpts,
-		"benchmark_before":  benchmarkResult,
-		"benchmark_after":   benchmarkAfter,
-		"improvement":       improvement,
-		"tests_still_pass":  testsStillPass,
+		"optimizations":    appliedOpts,
+		"benchmark_before": benchmarkResult,
+		"benchmark_after":  benchmarkAfter,
+		"improvement":      improvement,
+		"tests_still_pass": testsStillPass,
 	}
-	
+
 	// Solo considerar éxito si los tests aún pasan
 	success := testsStillPass && len(appliedOpts) > 0
-	
+
 	return &types.TaskResult{
 		TaskID:    task.ID,
 		State:     mapState(success),
@@ -89,29 +88,29 @@ func (o *Optimizer) Execute(ctx context.Context, task *types.Task) *types.TaskRe
 func (o *Optimizer) runBenchmarks() map[string]interface{} {
 	// Ejecutar go test -bench
 	benchOutput, _ := o.workspace.RunCommand("go", "test", "-bench=.", "-benchmem", "./...")
-	
+
 	result := map[string]interface{}{
 		"output": benchOutput,
 	}
-	
+
 	return result
 }
 
 // identifyOptimizations identifica optimizaciones potenciales
 func (o *Optimizer) identifyOptimizations(objective string) []string {
 	optimizations := make([]string, 0)
-	
+
 	// Analizar objetivo para tipos de optimización
 	if strings.Contains(objective, "slow") || strings.Contains(objective, "performance") {
 		optimizations = append(optimizations, "optimize_loops")
 		optimizations = append(optimizations, "reduce_allocations")
 		optimizations = append(optimizations, "cache_results")
 	}
-	
+
 	// Siempre sugerir algunas optimizaciones comunes
 	optimizations = append(optimizations, "remove_unused_imports")
 	optimizations = append(optimizations, "simplify_expressions")
-	
+
 	return optimizations
 }
 
@@ -123,19 +122,19 @@ func (o *Optimizer) isSafeOptimization(opt string) bool {
 		"simplify_expressions",
 		"reduce_allocations",
 	}
-	
+
 	for _, safe := range safeOpts {
 		if opt == safe {
 			return true
 		}
 	}
-	
+
 	// Optimizaciones que requieren tests
 	testRequiredOpts := []string{
 		"optimize_loops",
 		"cache_results",
 	}
-	
+
 	for _, testOpt := range testRequiredOpts {
 		if opt == testOpt {
 			// Verificar que hay tests disponibles
@@ -143,7 +142,7 @@ func (o *Optimizer) isSafeOptimization(opt string) bool {
 			return strings.Contains(testOutput, "Test")
 		}
 	}
-	
+
 	return false
 }
 
@@ -168,12 +167,4 @@ func (o *Optimizer) applyOptimization(opt string) bool {
 func (o *Optimizer) compareBenchmarks(before, after map[string]interface{}) string {
 	// Por ahora simplificado
 	return "benchmarks_compared"
-}
-
-// mapState convierte un bool a TaskState
-func mapState(success bool) types.TaskState {
-	if success {
-		return types.StateSuccess
-	}
-	return types.StateFailed
 }

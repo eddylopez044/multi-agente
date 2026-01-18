@@ -18,16 +18,16 @@ type Coder struct {
 }
 
 // NewCoder crea un nuevo agente codificador
-func NewCoder(ws workspace.Manager, policy policies.Engine) *Coder {
+func NewCoder(ws *workspace.Manager, policy *policies.Engine) *Coder {
 	contract := types.AgentContract{
-		ID:           "coder",
-		Name:         "Coder",
-		AllowedPaths: []string{"src/**", "cmd/**", "internal/**", "pkg/**"},
+		ID:             "coder",
+		Name:           "Coder",
+		AllowedPaths:   []string{"src/**", "cmd/**", "internal/**", "pkg/**"},
 		ForbiddenPaths: []string{"**/*_test.go", "vendor/**"},
 		AllowedTools:   []string{"go", "git"},
 		RequiredTests:  true,
 	}
-	
+
 	return &Coder{
 		BaseAgent: NewBaseAgent(ws, policy, contract),
 	}
@@ -42,37 +42,36 @@ func (c *Coder) Execute(ctx context.Context, task *types.Task) *types.TaskResult
 		Timestamp:  time.Now(),
 		Confidence: 0.8,
 	}
-	
+
 	// Crear rama para los cambios
 	branchName := fmt.Sprintf("agent-code-%d", time.Now().Unix())
 	if err := c.workspace.CheckoutBranch(branchName); err != nil {
 		return &types.TaskResult{
-			TaskID:   task.ID,
-			State:    types.StateFailed,
-			Success:  false,
-			Error:    fmt.Sprintf("failed to create branch: %v", err),
+			TaskID:    task.ID,
+			State:     types.StateFailed,
+			Success:   false,
+			Error:     fmt.Sprintf("failed to create branch: %v", err),
 			Decisions: []types.Decision{decision},
 		}
 	}
-	
+
 	// Analizar el objetivo para determinar qué archivos modificar
 	filesToModify := c.analyzeObjective(task.Objective, task.Inputs)
-	
+
 	changes := make([]string, 0)
 	evidence := make([]types.Evidence, 0)
-	
+
 	for _, file := range filesToModify {
 		// Validar que el archivo está permitido
-		fullPath := filepath.Join(c.workspace.GetRepoPath(), file)
 		if !c.ValidatePath(file) {
 			continue
 		}
-		
+
 		// Intentar aplicar cambios (por ahora solo simular)
 		change := c.applyChange(file, task.Objective)
 		if change != "" {
 			changes = append(changes, file)
-			
+
 			evidence = append(evidence, types.Evidence{
 				Type:        "diff",
 				Source:      file,
@@ -81,24 +80,24 @@ func (c *Coder) Execute(ctx context.Context, task *types.Task) *types.TaskResult
 			})
 		}
 	}
-	
+
 	// Ejecutar fmt
 	if output, err := c.workspace.RunCommand("go", "fmt", "./..."); err != nil {
 		evidence = append(evidence, types.Evidence{
-			Type:        "log",
-			Source:      "go fmt",
-			Content:     []byte(output),
-			Timestamp:   time.Now(),
+			Type:      "log",
+			Source:    "go fmt",
+			Content:   []byte(output),
+			Timestamp: time.Now(),
 		})
 	}
-	
+
 	outputs := map[string]interface{}{
 		"files_changed": changes,
 		"branch":        branchName,
 	}
-	
+
 	success := len(changes) > 0
-	
+
 	return &types.TaskResult{
 		TaskID:    task.ID,
 		State:     mapState(success),
@@ -112,7 +111,7 @@ func (c *Coder) Execute(ctx context.Context, task *types.Task) *types.TaskResult
 // analyzeObjective determina qué archivos deben modificarse
 func (c *Coder) analyzeObjective(objective string, inputs map[string]interface{}) []string {
 	files := make([]string, 0)
-	
+
 	// Si hay archivos específicos en los inputs
 	if fileInput, ok := inputs["files"].([]interface{}); ok {
 		for _, f := range fileInput {
@@ -121,10 +120,10 @@ func (c *Coder) analyzeObjective(objective string, inputs map[string]interface{}
 			}
 		}
 	}
-	
+
 	// Buscar archivos relevantes en el workspace
 	repoPath := c.workspace.GetRepoPath()
-	
+
 	// Buscar en directorios permitidos
 	for _, allowedPath := range c.contract.AllowedPaths {
 		searchPath := filepath.Join(repoPath, allowedPath)
@@ -132,7 +131,7 @@ func (c *Coder) analyzeObjective(objective string, inputs map[string]interface{}
 			files = append(files, matches...)
 		}
 	}
-	
+
 	// Si no se encontraron archivos, buscar archivos Go en src o cmd
 	if len(files) == 0 {
 		candidateDirs := []string{"src", "cmd", "internal", "pkg"}
@@ -146,7 +145,7 @@ func (c *Coder) analyzeObjective(objective string, inputs map[string]interface{}
 			}
 		}
 	}
-	
+
 	return files
 }
 
@@ -154,7 +153,7 @@ func (c *Coder) analyzeObjective(objective string, inputs map[string]interface{}
 func (c *Coder) findRelevantFiles(searchPath string, objective string) []string {
 	// Por ahora, búsqueda simple
 	files := make([]string, 0)
-	
+
 	filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -167,7 +166,7 @@ func (c *Coder) findRelevantFiles(searchPath string, objective string) []string 
 		}
 		return nil
 	})
-	
+
 	return files
 }
 
@@ -195,12 +194,4 @@ func (c *Coder) applyChange(file, objective string) string {
 		return file
 	}
 	return ""
-}
-
-// mapState convierte un bool a TaskState
-func mapState(success bool) types.TaskState {
-	if success {
-		return types.StateSuccess
-	}
-	return types.StateFailed
 }

@@ -19,16 +19,16 @@ type Tester struct {
 }
 
 // NewTester crea un nuevo agente tester
-func NewTester(ws workspace.Manager, policy policies.Engine) *Tester {
+func NewTester(ws *workspace.Manager, policy *policies.Engine) *Tester {
 	contract := types.AgentContract{
-		ID:           "tester",
-		Name:         "Tester",
-		AllowedPaths: []string{"**/*_test.go"},
+		ID:             "tester",
+		Name:           "Tester",
+		AllowedPaths:   []string{"**/*_test.go"},
 		ForbiddenPaths: []string{"**/*.go"}, // No puede modificar código de producción
 		AllowedTools:   []string{"go", "go test"},
 		RequiredTests:  false,
 	}
-	
+
 	return &Tester{
 		BaseAgent: NewBaseAgent(ws, policy, contract),
 	}
@@ -43,23 +43,23 @@ func (t *Tester) Execute(ctx context.Context, task *types.Task) *types.TaskResul
 		Timestamp:  time.Now(),
 		Confidence: 0.95,
 	}
-	
+
 	startTime := time.Now()
-	
+
 	// Ejecutar tests
 	testOutput, err := t.workspace.RunCommand("go", "test", "-v", "-cover", "./...")
-	
+
 	duration := time.Since(startTime)
-	
+
 	testResult := t.parseTestOutput(testOutput, err, duration)
-	
+
 	// Ejecutar coverage detallado
 	coverageOutput, _ := t.workspace.RunCommand("go", "test", "-coverprofile=coverage.out", "./...")
 	if coverageOutput != "" {
 		coverage, _ := t.parseCoverage(coverageOutput)
 		testResult.Coverage = coverage
 	}
-	
+
 	evidence := []types.Evidence{
 		{
 			Type:        "report",
@@ -69,14 +69,14 @@ func (t *Tester) Execute(ctx context.Context, task *types.Task) *types.TaskResul
 			Description: "Test execution output",
 		},
 	}
-	
+
 	outputs := map[string]interface{}{
 		"test_result": testResult,
 		"command":     "go test -v -cover ./...",
 	}
-	
+
 	success := testResult.Failed == 0 && err == nil
-	
+
 	return &types.TaskResult{
 		TaskID:    task.ID,
 		State:     mapState(success),
@@ -97,7 +97,7 @@ func (t *Tester) parseTestOutput(output string, err error, duration time.Duratio
 		Duration: duration,
 		Failures: make([]types.TestFailure, 0),
 	}
-	
+
 	if err != nil {
 		// Extraer información de fallos de la salida
 		lines := strings.Split(output, "\n")
@@ -128,7 +128,7 @@ func (t *Tester) parseTestOutput(output string, err error, duration time.Duratio
 			}
 		}
 	}
-	
+
 	return result
 }
 
@@ -145,12 +145,4 @@ func (t *Tester) parseCoverage(output string) (float64, error) {
 		return coverage, nil
 	}
 	return 0, fmt.Errorf("coverage not found in output")
-}
-
-// mapState convierte un bool a TaskState
-func mapState(success bool) types.TaskState {
-	if success {
-		return types.StateSuccess
-	}
-	return types.StateFailed
 }

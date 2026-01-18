@@ -16,13 +16,13 @@ type Agent interface {
 
 // BaseAgent proporciona funcionalidad común a todos los agentes
 type BaseAgent struct {
-	workspace workspace.Manager
-	policy    policies.Engine
+	workspace *workspace.Manager
+	policy    *policies.Engine
 	contract  types.AgentContract
 }
 
 // NewBaseAgent crea un nuevo agente base
-func NewBaseAgent(ws workspace.Manager, policy policies.Engine, contract types.AgentContract) *BaseAgent {
+func NewBaseAgent(ws *workspace.Manager, policy *policies.Engine, contract types.AgentContract) *BaseAgent {
 	return &BaseAgent{
 		workspace: ws,
 		policy:    policy,
@@ -38,7 +38,7 @@ func (b *BaseAgent) ValidatePath(path string) bool {
 			return false
 		}
 	}
-	
+
 	// Si hay rutas permitidas, verificar que esté en la lista
 	if len(b.contract.AllowedPaths) > 0 {
 		allowed := false
@@ -50,7 +50,7 @@ func (b *BaseAgent) ValidatePath(path string) bool {
 		}
 		return allowed
 	}
-	
+
 	return true
 }
 
@@ -69,4 +69,32 @@ func pathMatches(path, pattern string) (bool, error) {
 // GetContract retorna el contrato del agente
 func (b *BaseAgent) GetContract() types.AgentContract {
 	return b.contract
+}
+
+// mapState convierte un bool a TaskState (función auxiliar común)
+func mapState(success bool) types.TaskState {
+	if success {
+		return types.StateSuccess
+	}
+	return types.StateFailed
+}
+
+// contains verifica si un string contiene un substring (función auxiliar común)
+func contains(s, substr string) bool {
+	if len(substr) > len(s) {
+		return false
+	}
+	for i := 0; i <= len(s)-len(substr); i++ {
+		match := true
+		for j := 0; j < len(substr); j++ {
+			if s[i+j] != substr[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
 }

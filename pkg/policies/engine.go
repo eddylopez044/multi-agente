@@ -1,8 +1,6 @@
 package policies
 
 import (
-	"fmt"
-
 	"github.com/nanochip/multi-agent/pkg/types"
 )
 
@@ -27,10 +25,10 @@ func NewEngine() *Engine {
 		policies: make([]types.Policy, 0),
 		gates:    make([]Gate, 0),
 	}
-	
+
 	// Configurar gates por defecto
 	engine.setupDefaultGates()
-	
+
 	return engine
 }
 
@@ -87,7 +85,7 @@ func (e *Engine) setupDefaultGates() {
 			Validator: func(result *types.TaskResult) bool {
 				if findings, ok := result.Outputs["secret_findings"].([]types.AuditFinding); ok {
 					for _, finding := range findings {
-						if finding.Category == "secret" && 
+						if finding.Category == "secret" &&
 							(finding.Severity == types.SeverityCritical || finding.Severity == types.SeverityHigh) {
 							return false
 						}
@@ -136,10 +134,23 @@ func (e *Engine) AllowTask(task *types.Task) bool {
 		if !policy.Enabled {
 			continue
 		}
-		
-		// Verificar restricciones de rutas
-		if allowedPaths, ok := policy.Metadata["allowed_paths"].([]interface{}); ok {
-			// Validar que la tarea no toque rutas prohibidas
+
+		// Verificar restricciones de rutas si están en los inputs
+		if files, ok := task.Inputs["files"].([]interface{}); ok {
+			if forbiddenPaths, ok := policy.Metadata["forbidden_paths"].([]interface{}); ok {
+				// Validar que la tarea no toque rutas prohibidas
+				for _, file := range files {
+					if fileStr, ok := file.(string); ok {
+						for _, forbiddenPath := range forbiddenPaths {
+							if forbiddenPathStr, ok := forbiddenPath.(string); ok {
+								if matched, _ := pathMatches(fileStr, forbiddenPathStr); matched {
+									return false
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 	return true
@@ -182,7 +193,7 @@ func (e *Engine) ValidatePath(agentID string, path string, policy types.Policy) 
 			return false
 		}
 	}
-	
+
 	// Verificar rutas prohibidas
 	if forbiddenPaths, ok := policy.Metadata["forbidden_paths"].([]interface{}); ok {
 		for _, forbiddenPath := range forbiddenPaths {
@@ -193,7 +204,7 @@ func (e *Engine) ValidatePath(agentID string, path string, policy types.Policy) 
 			}
 		}
 	}
-	
+
 	return true
 }
 

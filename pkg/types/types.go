@@ -9,13 +9,13 @@ import (
 type TaskType string
 
 const (
-	TaskPlan      TaskType = "plan"
-	TaskCode      TaskType = "code"
-	TaskTest      TaskType = "test"
-	TaskAudit     TaskType = "audit"
-	TaskRepair    TaskType = "repair"
-	TaskOptimize  TaskType = "optimize"
-	TaskRelease   TaskType = "release"
+	TaskPlan     TaskType = "plan"
+	TaskCode     TaskType = "code"
+	TaskTest     TaskType = "test"
+	TaskAudit    TaskType = "audit"
+	TaskRepair   TaskType = "repair"
+	TaskOptimize TaskType = "optimize"
+	TaskRelease  TaskType = "release"
 )
 
 // TaskState representa el estado de una tarea
@@ -103,22 +103,22 @@ type AuditFinding struct {
 
 // TestResult representa el resultado de tests
 type TestResult struct {
-	Passed      int                    `json:"passed"`
-	Failed      int                    `json:"failed"`
-	Skipped     int                    `json:"skipped"`
-	Duration    time.Duration          `json:"duration"`
-	Coverage    float64                `json:"coverage"`
-	Failures    []TestFailure          `json:"failures,omitempty"`
-	Command     string                 `json:"command"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Passed   int                    `json:"passed"`
+	Failed   int                    `json:"failed"`
+	Skipped  int                    `json:"skipped"`
+	Duration time.Duration          `json:"duration"`
+	Coverage float64                `json:"coverage"`
+	Failures []TestFailure          `json:"failures,omitempty"`
+	Command  string                 `json:"command"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // TestFailure representa un test que falló
 type TestFailure struct {
-	Test     string `json:"test"`
-	Package  string `json:"package"`
-	Message  string `json:"message"`
-	Output   string `json:"output,omitempty"`
+	Test    string `json:"test"`
+	Package string `json:"package"`
+	Message string `json:"message"`
+	Output  string `json:"output,omitempty"`
 }
 
 // Policy representa una política de guardrail

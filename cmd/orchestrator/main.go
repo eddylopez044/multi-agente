@@ -79,8 +79,8 @@ func setupDefaultPolicies(policy *policies.Engine) {
 		Type:        "constraint",
 		Enabled:     true,
 		Metadata: map[string]interface{}{
-			"agent_id":     "coder",
-			"allowed_paths": []interface{}{"src/**", "cmd/**", "internal/**", "pkg/**"},
+			"agent_id":        "coder",
+			"allowed_paths":   []interface{}{"src/**", "cmd/**", "internal/**", "pkg/**"},
 			"forbidden_paths": []interface{}{"**/*_test.go", "vendor/**"},
 		},
 	}
@@ -94,8 +94,8 @@ func setupDefaultPolicies(policy *policies.Engine) {
 		Type:        "constraint",
 		Enabled:     true,
 		Metadata: map[string]interface{}{
-			"agent_id":     "tester",
-			"allowed_paths": []interface{}{"**/*_test.go"},
+			"agent_id":        "tester",
+			"allowed_paths":   []interface{}{"**/*_test.go"},
 			"forbidden_paths": []interface{}{"**/*.go"},
 		},
 	}
