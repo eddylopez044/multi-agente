@@ -30,3 +30,6 @@ workspace/branches/
 
 # Artefactos de ejecución
 artifacts/
+cli
+orchestrator
+bin/
