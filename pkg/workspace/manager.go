@@ -14,11 +14,11 @@ import (
 
 // Manager gestiona el workspace git
 type Manager struct {
-	repoPath    string
-	repo        *git.Repository
-	baseBranch  string
+	repoPath      string
+	repo          *git.Repository
+	baseBranch    string
 	currentBranch string
-	tmpDir      string
+	tmpDir        string
 }
 
 // NewManager crea un nuevo workspace manager
@@ -27,17 +27,17 @@ func NewManager(repoPath string) (*Manager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open git repo: %w", err)
 	}
-	
+
 	tmpDir := filepath.Join(repoPath, ".multi-agent", "branches")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create tmp dir: %w", err)
 	}
-	
+
 	return &Manager{
-		repoPath: repoPath,
-		repo:     repo,
+		repoPath:   repoPath,
+		repo:       repo,
 		baseBranch: "main",
-		tmpDir:    tmpDir,
+		tmpDir:     tmpDir,
 	}, nil
 }
 
@@ -47,11 +47,11 @@ func (m *Manager) CheckoutBranch(branchName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get worktree: %w", err)
 	}
-	
+
 	// Verificar si la rama ya existe
 	branchRef := plumbing.NewBranchReferenceName(branchName)
 	_, err = m.repo.Reference(branchRef, false)
-	
+
 	if err == nil {
 		// La rama existe, hacer checkout
 		if err := worktree.Checkout(&git.CheckoutOptions{
@@ -66,12 +66,12 @@ func (m *Manager) CheckoutBranch(branchName string) error {
 		if err != nil {
 			return fmt.Errorf("failed to get HEAD: %w", err)
 		}
-		
+
 		newRef := plumbing.NewHashReference(branchRef, headRef.Hash())
 		if err := m.repo.Storer.SetReference(newRef); err != nil {
 			return fmt.Errorf("failed to create branch: %w", err)
 		}
-		
+
 		if err := worktree.Checkout(&git.CheckoutOptions{
 			Branch: branchRef,
 			Create: false,
@@ -79,7 +79,7 @@ func (m *Manager) CheckoutBranch(branchName string) error {
 			return fmt.Errorf("failed to checkout new branch: %w", err)
 		}
 	}
-	
+
 	m.currentBranch = branchName
 	return nil
 }
@@ -102,17 +102,17 @@ func (m *Manager) GetDiff() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get worktree: %w", err)
 	}
-	
+
 	status, err := worktree.Status()
 	if err != nil {
 		return "", fmt.Errorf("failed to get status: %w", err)
 	}
-	
+
 	diffOutput := ""
 	for file, fileStatus := range status {
 		diffOutput += fmt.Sprintf("%s %s\n", fileStatus.Staging, file)
 	}
-	
+
 	return diffOutput, nil
 }
 
@@ -122,12 +122,12 @@ func (m *Manager) Commit(message string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get worktree: %w", err)
 	}
-	
+
 	// Agregar todos los cambios
 	if _, err := worktree.Add("."); err != nil {
 		return fmt.Errorf("failed to add changes: %w", err)
 	}
-	
+
 	// Crear commit
 	_, err = worktree.Commit(message, &git.CommitOptions{
 		Author: &git.Signature{
@@ -136,11 +136,11 @@ func (m *Manager) Commit(message string) error {
 			When:  time.Now(),
 		},
 	})
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to commit: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -148,12 +148,12 @@ func (m *Manager) Commit(message string) error {
 func (m *Manager) RunCommand(cmd string, args ...string) (string, error) {
 	command := exec.Command(cmd, args...)
 	command.Dir = m.repoPath
-	
+
 	output, err := command.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("command failed: %w", err)
 	}
-	
+
 	return string(output), nil
 }
 
@@ -164,13 +164,13 @@ func (m *Manager) Cleanup() error {
 	if err != nil {
 		return err
 	}
-	
+
 	if err := worktree.Checkout(&git.CheckoutOptions{
 		Branch: plumbing.NewBranchReferenceName(m.baseBranch),
 	}); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
